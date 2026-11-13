@@ -15,6 +15,8 @@
 
 流程服务后台使用 Python 作为开发语言，使用 Django 开发框架；前端使用 Vue 开发页面，通过前后端分离式的开发模式，在提供美观交互性强的界面的同时，提升整体的开发效率。
 
+> 本 `main` 分支支持 Standalone 本地独立运行，不需要连接蓝鲸 PaaS、IAM、CMDB、ESB、SOPS 或其他蓝鲸 SaaS。原版工单、流程、服务目录、SLA、任务、触发器、评论和附件模块均保留。SOPS、蓝盾、企业组织架构、CMDB 角色、CMSI 通知和 BKChat 等蓝鲸专用功能在 Standalone 模式下关闭。
+
 ## Overview
 
 - [设计理念](docs/overview/design.md)
@@ -28,7 +30,63 @@ ITSM (IT 服务管理)是一套帮助企业对 IT 系统的规划、研发、实
 
 蓝鲸智云 ITSM 服务流程管理，是基于蓝鲸智云体系的上层 SaaS 应用。通过可自定义设计的流程模块，覆盖 IT 服务中的不同管理活动或应用场景。帮助企业用户规范内部管理流程，提升沟通及管理效率。
 
-## Getting started  
+## 本地独立运行（Standalone）
+
+运行前准备：
+
+- Python 3.11
+- Node.js 16.20.2、npm 8
+- MySQL
+- Redis（同时用于 Django 缓存和 Celery Broker）
+- RabbitMQ 非必需，当前使用 Redis 作为 Broker
+- Elasticsearch 非必需，核心工单流程不依赖
+
+### 1. 配置
+
+```bash
+cp config/local_settings.example.py config/local_settings.py
+```
+
+编辑 `config/local_settings.py`，配置 MySQL 和 Redis：
+
+```text
+MYSQL_HOST
+MYSQL_PORT
+MYSQL_NAME
+MYSQL_USER
+MYSQL_PASSWORD
+REDIS_HOST
+REDIS_PORT
+REDIS_PASSWORD
+REDIS_DB
+```
+
+MySQL 建议使用 `utf8`/`utf8_general_ci`，避免原版长字段在 `utf8mb4` 下触发行宽限制。
+
+### 2. 初始化
+
+```bash
+python manage.py migrate --noinput
+python manage.py createcachetable django_cache account_cache
+python manage.py standalone_setup
+```
+
+`standalone_setup` 会创建或更新本地超级管理员，并关闭组织架构和通知中心。默认管理员为 `admin/admin`，可以通过环境变量 `STANDALONE_ADMIN_USERNAME` 和 `STANDALONE_ADMIN_PASSWORD` 覆盖。
+
+### 3. 启动
+
+```bash
+python manage.py runserver 0.0.0.0:8000
+python manage.py celery worker -l info -B
+cd frontend/pc && npm run dev
+```
+
+访问 `http://127.0.0.1:8004/`。后端根路径 `http://127.0.0.1:8000/` 会在登录后跳转到 PC 前端。
+
+更完整的依赖边界、保留范围和验证结果见 [Standalone 审计与改造结果](docs/BK-ITSM-local-standalone-audit.md)。
+
+## Upstream BlueKing deployment
+
 - [开发环境部署](docs/install/dev_deploy.md)
 - [正式环境源码部署](docs/install/source_code_deploy.md)
 - [正式环境上传部署](docs/install/upload_pack_deploy.md)
@@ -46,31 +104,12 @@ ITSM (IT 服务管理)是一套帮助企业对 IT 系统的规划、研发、实
 
 
 ## Unit Testing
-- 在本地进行单元测试时建议使用如下环境变量配置，需要注意配置好MySQL和Redis
-- 建议使用PyCharm中集成的Django Test加载`.env`文件的方式去执行，target填写`itsm.tests`
-```.dotenv
-RUN_ENV=open
-APP_CODE=bk_itsm
-APP_ID=bk_itsm
-RUN_VER=open
-SECRET_KEY=12345678-1234-5678-1234-123456789012
-APP_TOKEN=12345678-1234-5678-1234-123456789012
-BK_PAAS_HOST=http://127.0.0.1
-BK_IAM_V3_INNER_HOST=127.0.0.1
-BK_IAM_INNER_HOST=http://127.0.0.1:8080
-BROKER_URL=redis://localhost:6379/0
-USE_IAM=false
-BKAPP_REDIS_HOST=localhost
-BKAPP_BK_IAM_SYSTEM_ID=itsm
-BKAPP_IAM_INITIAL_FILE=dev
-BKAPP_REDIS_PORT=6379
-BKAPP_REDIS_PASSWORD=
-BK_MYSQL_NAME=bk_itsm_ci
-BK_MYSQL_USER=root
-BK_MYSQL_PASSWORD=root
-BK_MYSQL_HOST=localhost
-BK_MYSQL_PORT=3306
-BK_MYSQL_TEST_NAME=bk_itsm_ci_test
+Standalone 测试使用 `config/local_settings.py` 中的 MySQL/Redis 配置，不需要蓝鲸 PaaS、IAM 或 ESB 环境变量：
+
+```bash
+python manage.py check
+python manage.py test itsm.tests.test_standalone
+python manage.py test itsm.tests.ticket.test_ticket
 ```
 
 ## Version plan

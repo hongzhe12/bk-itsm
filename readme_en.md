@@ -7,13 +7,15 @@
 [![codecov](https://codecov.io/gh/TencentBlueKing/bk-itsm/branch/master/graph/badge.svg?token=OMFO8UFA21)](https://codecov.io/gh/TencentBlueKing/bk-itsm)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/TencentBlueKing/bk-itsm/pulls)
 
-[(English Documents Available)](readme_en.md)
+[(Chinese Documents Available)](readme.md)
 
 ITSM is the upper SaaS application based on Tencent Blueking product system. Cover different management activities or application scenarios in IT services through customizable process modules. Help enterprise users to standardize the internal management process, improve communication and management efficiency.
 
 ITSM is designed and developed based on the overall architecture of Tencent Blueking product system. Provides visualized process configuration services for users to meet their service management requirements. At the same time, the third-party connection capability is provided so that users can dispatch other platforms or service capabilities in the Tencent Blueking product system (configuration platform, standard operation and maintenance, ESB, etc.), and the connection with third-party services can also be realized according to users' own demands, reducing communication costs and improving circulation efficiency.
 
 The ITSM  uses Python as the development language and Django as the development framework. The front end uses Vue development page, through the front and back end separated development mode, while providing a beautiful and interactive interface, improve the overall development efficiency.
+
+> The `main` branch supports standalone local development without connecting to BlueKing PaaS, IAM, CMDB, ESB, SOPS, or any other BlueKing SaaS. The original ticket, workflow, service catalog, SLA, task, trigger, comment, and attachment modules are retained. BlueKing-specific integrations such as SOPS, DevOps, enterprise organization data, CMDB roles, CMSI notifications, and BKChat are disabled in standalone mode.
 
 ## Overview
 
@@ -28,7 +30,63 @@ ITSM is a methodology to help enterprises effectively manage the planning, devel
 
 ITSM is an upper layer SaaS application based on the Tencent Blueking product system. Through customizable process modules, it covers different management activities or application scenarios in IT services. It helps enterprise users standardize internal management processes and improve communication and management efficiency.
 
-## Getting started  
+## Standalone local development
+
+Requirements:
+
+- Python 3.11
+- Node.js 16.20.2 and npm 8
+- MySQL
+- Redis, used for Django cache and the Celery broker
+- RabbitMQ is not required
+- Elasticsearch is not required by the core ticket workflow
+
+### 1. Configuration
+
+```bash
+cp config/local_settings.example.py config/local_settings.py
+```
+
+Configure MySQL and Redis in `config/local_settings.py`:
+
+```text
+MYSQL_HOST
+MYSQL_PORT
+MYSQL_NAME
+MYSQL_USER
+MYSQL_PASSWORD
+REDIS_HOST
+REDIS_PORT
+REDIS_PASSWORD
+REDIS_DB
+```
+
+Use `utf8`/`utf8_general_ci` for MySQL to avoid row-size limits caused by the original long text columns.
+
+### 2. Initialize
+
+```bash
+python manage.py migrate --noinput
+python manage.py createcachetable django_cache account_cache
+python manage.py standalone_setup
+```
+
+The setup command creates or updates the local superuser and disables organization and notification-center integrations. The default account is `admin/admin`; override it with `STANDALONE_ADMIN_USERNAME` and `STANDALONE_ADMIN_PASSWORD`.
+
+### 3. Start
+
+```bash
+python manage.py runserver 0.0.0.0:8000
+python manage.py celery worker -l info -B
+cd frontend/pc && npm run dev
+```
+
+Open `http://127.0.0.1:8004/`. The backend root at `http://127.0.0.1:8000/` redirects to the PC frontend after login.
+
+See [Standalone audit and implementation result](docs/BK-ITSM-local-standalone-audit.md) for dependency boundaries, retained functionality, and verification details.
+
+## Upstream BlueKing deployment
+
 - [Development Environment Deployment(In Chinese)](docs/install/dev_deploy.md)
 - [Production Source Code Deployment (In Chinese)](docs/install/source_code_deploy.md)
 - [Production Upload Deployment (In Chinese)](docs/install/upload_pack_deploy.md)
@@ -44,31 +102,12 @@ ITSM is an upper layer SaaS application based on the Tencent Blueking product sy
 - [ITSM Access Guidelines](docs/wiki/access.md)
 
 ## Unit Testing
-- When performing unit tests locally, it is recommended to use the following environment variable configuration. Ensure that MySQL and Redis are properly set up.
-- It is advisable to execute the tests using the integrated Django Test feature in PyCharm, which loads the `.env` file. Set the target to `itsm.tests`.
-```.dotenv
-RUN_ENV=open
-APP_CODE=bk_itsm
-APP_ID=bk_itsm
-RUN_VER=open
-SECRET_KEY=12345678-1234-5678-1234-123456789012
-APP_TOKEN=12345678-1234-5678-1234-123456789012
-BK_PAAS_HOST=http://127.0.0.1
-BK_IAM_V3_INNER_HOST=127.0.0.1
-BK_IAM_INNER_HOST=http://127.0.0.1:8080
-BROKER_URL=redis://localhost:6379/0
-USE_IAM=false
-BKAPP_REDIS_HOST=localhost
-BKAPP_BK_IAM_SYSTEM_ID=itsm
-BKAPP_IAM_INITIAL_FILE=dev
-BKAPP_REDIS_PORT=6379
-BKAPP_REDIS_PASSWORD=
-BK_MYSQL_NAME=bk_itsm_ci
-BK_MYSQL_USER=root
-BK_MYSQL_PASSWORD=root
-BK_MYSQL_HOST=localhost
-BK_MYSQL_PORT=3306
-BK_MYSQL_TEST_NAME=bk_itsm_ci_test
+Standalone tests use the MySQL and Redis configuration from `config/local_settings.py`. No BlueKing PaaS, IAM, or ESB environment variables are required:
+
+```bash
+python manage.py check
+python manage.py test itsm.tests.test_standalone
+python manage.py test itsm.tests.ticket.test_ticket
 ```
 
 ## Version plan
