@@ -288,6 +288,7 @@
           top10CreateTicketUser: false,
           biz: false,
         },
+        scrollContainer: null,
         toggle: {
           top10: {
             error: false,
@@ -311,10 +312,11 @@
       this.handleDateSelectorPosition = throttle(this.scrollHandler, 300);
     },
     mounted() {
-      document.querySelector('.section-content').addEventListener('scroll', this.handleDateSelectorPosition, false);
+      this.scrollContainer = this.$el.querySelector('.section-content');
+      this.scrollContainer.addEventListener('scroll', this.handleDateSelectorPosition, false);
     },
     beforeDestroy() {
-      document.querySelector('.section-content').removeEventListener('scroll', this.handleDateSelectorPosition, false);
+      this.scrollContainer.removeEventListener('scroll', this.handleDateSelectorPosition, false);
     },
     methods: {
       async getServiceList() {

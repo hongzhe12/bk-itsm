@@ -152,7 +152,8 @@
         const params = {
           project_key: this.projectId || 'public',
         };
-        this.$refs.apiTree.isTreeLoading = true;
+        const apiTree = this.$refs.apiTree;
+        apiTree.isTreeLoading = true;
         this.$store.dispatch('apiRemote/get_remote_system', params).then((res) => {
           this.isBuiltinIdList = res.data.map(item => item.system_id);
           res.data.forEach((item) => {
@@ -166,7 +167,7 @@
             errorHandler(res, this);
           })
           .finally(() => {
-            this.$refs.apiTree.isTreeLoading = false;
+            apiTree.isTreeLoading = false;
           });
       },
       // 获取codeList
@@ -259,7 +260,8 @@
       // 获取已接入api接口列表数据
       async getTableList(id, customPaging, searchInfo) {
         await this.displayInfo.level_1;
-        await this.$refs.apiTable;
+        await this.$nextTick();
+        const apiTable = this.$refs.apiTable;
         this.remoteSystem = id;
         const params = {
           remote_system: id || '',
@@ -270,7 +272,7 @@
           key: searchInfo ? searchInfo.key : '',
           project_key: this.projectId || 'public',
         };
-        this.$refs.apiTable.isTableLoading = true;
+        apiTable.isTableLoading = true;
         this.listError = false;
         await this.$store.dispatch('apiRemote/get_remote_api', params).then((res) => {
           this.isSelectedApiList = res.data.items.filter(ite => !ite.is_builtin).map(item => item.path);
@@ -279,15 +281,15 @@
             return item;
           });
           // 分页
-          this.$refs.apiTable.pagination.current = res.data.page;
-          this.$refs.apiTable.pagination.count = res.data.count;
+          apiTable.pagination.current = res.data.page;
+          apiTable.pagination.count = res.data.count;
         })
           .catch((res) => {
             this.listError = true;
             errorHandler(res, this);
           })
           .finally(() => {
-            this.$refs.apiTable.isTableLoading = false;
+            apiTable.isTableLoading = false;
           });
       },
       // 根据系统code --> 获取pathList 未接入api接口

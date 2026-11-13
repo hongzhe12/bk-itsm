@@ -10,10 +10,13 @@ django.pot
 *.sql
 *.env*
 *.sh
+!/start.sh
 
 frontend/pc/node_modules
 static/assets*
 venv
+.venv
+.python311
 USERRES
 logs/
 rule_engine
