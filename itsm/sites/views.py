@@ -86,6 +86,9 @@ def index(request):
     """首页"""
     from adapter.core import TITLE, LOGIN_URL
 
+    if settings.STANDALONE_MODE:
+        return HttpResponseRedirect(settings.FRONTEND_DEV_URL)
+
     # 如果发现不是woa过来的域名
     if (
         settings.WEIXIN_APP_EXTERNAL_HOST

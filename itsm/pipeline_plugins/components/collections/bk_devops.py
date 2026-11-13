@@ -183,6 +183,9 @@ class BkDevOpsService(ItsmBaseService):
         @param parent_data: Type: object
         @return: True为流程中，False为流程暂停
         """
+        if settings.STANDALONE_MODE:
+            return False
+
         if super(BkDevOpsService, self).execute(data, parent_data):
             return True
 
@@ -334,6 +337,8 @@ class BkDevOpsService(ItsmBaseService):
         @param callback_data: Type: object
         @return: True为流程中，False为流程暂停
         """
+        if settings.STANDALONE_MODE:
+            return False
 
         # 1.拿到outputs中的username，项目id，流水线id，构建id
         devops_username = data.outputs.get("devops_username", None)

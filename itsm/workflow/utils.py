@@ -48,6 +48,8 @@ def translate_constant_2(constant):
 
 def init_notify_type_choice():
     """获取ESB接入通知类型"""
+    if settings.STANDALONE_MODE:
+        return NOTIFY_TYPE_CHOICES
     try:
         cmsi_client = BkCmsiApi.get_client()
         response = cmsi_client.v1_channels_list()

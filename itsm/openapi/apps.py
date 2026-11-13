@@ -39,6 +39,10 @@ class OpenapiConfig(AppConfig):
 
     def ready(self):
         print("init api public key")
+        if settings.STANDALONE_MODE:
+            print("standalone mode: skip api public key")
+            return
+
         if not settings.IS_PAAS_V3:
             esb_result = self.get_esb_public_key()
             if esb_result["result"]:

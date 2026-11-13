@@ -5,7 +5,8 @@ const webpackBase = require('./webpack.base.conf')
 const HtmlWebpackPlugin = require('html-webpack-plugin')
 
 // 本地代理地址
-const HOST = ''
+const HOST = '127.0.0.1:8000'
+const DEV_HOST = '127.0.0.1'
 const ORIGIN = `http://${HOST}`
 const SET_URL = ''
 
@@ -54,7 +55,7 @@ module.exports = merge(webpackBase, {
     devtool: 'inline-source-map',
     devServer: {
         contentBase: path.posix.join(__dirname, '../../../static'),
-        host: `dev.${HOST}`,
+        host: DEV_HOST,
         port: 8004,
         https: ORIGIN.indexOf('https') > -1,
         hot: true,
@@ -75,6 +76,16 @@ module.exports = merge(webpackBase, {
                 Referer: ORIGIN,
                 secure: false
             },
+            '/login': {
+                target: ORIGIN + SET_URL,
+                changeOrigin: true,
+                secure: false
+            },
+            '/account': {
+                target: ORIGIN + SET_URL,
+                changeOrigin: true,
+                secure: false
+            },
             '/openapi/*':{
                 target: ORIGIN + SET_URL,
                 changeOrigin: true,
@@ -85,6 +96,16 @@ module.exports = merge(webpackBase, {
                 target: ORIGIN + SET_URL,
                 changeOrigin: true,
                 Referer: ORIGIN,
+                secure: false
+            },
+            '/notice': {
+                target: ORIGIN + SET_URL,
+                changeOrigin: true,
+                secure: false
+            },
+            '/media': {
+                target: ORIGIN + SET_URL,
+                changeOrigin: true,
                 secure: false
             },
             '/o/bk_sops/*': {

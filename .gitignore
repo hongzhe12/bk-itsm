@@ -15,6 +15,7 @@ frontend/pc/node_modules
 static/assets*
 venv
 USERRES
+logs/
 rule_engine
 profiles
 debug

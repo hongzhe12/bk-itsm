@@ -46,34 +46,35 @@ from itsm.auth_iam.resources.flow_version import WorkflowVersionResourceProvider
 from itsm.auth_iam.views import ResourceViewSet, PermissionViewSet
 from itsm.auth_iam.resources import ProjectResourceProvider
 
-iam = IAM(
-    settings.APP_CODE,
-    settings.SECRET_KEY,
-    settings.BK_IAM_INNER_HOST,
-    settings.BK_PAAS_HOST,
-)
-
 routers = DefaultRouter(trailing_slash=True)
 
 routers.register(r"__skip__", ResourceViewSet, basename="skip")
 routers.register(r"permission", PermissionViewSet, basename="permissions")
 
-# 注册权限资源接口
-dispatcher = DjangoBasicResourceApiDispatcher(iam, settings.BK_IAM_SYSTEM_ID)
-dispatcher.register("project", ProjectResourceProvider())
-dispatcher.register("workflow", WorkFlowResourceProvider())
-dispatcher.register("service", ServiceResourceProvider())
-dispatcher.register("flow_version", WorkflowVersionResourceProvider())
-dispatcher.register("role", RoleResourceProvider())
-dispatcher.register("field", FieldResourceProvider())
-dispatcher.register("trigger", TriggerResourceProvider())
-dispatcher.register("user_group", UserGroupResourceProvider())
-dispatcher.register("sla_agreement", SlaAgreementResourceProvider())
-dispatcher.register("sla_calendar", SlaCalenderResourceProvider())
-dispatcher.register("public_field", PublicFieldResourceProvider())
-dispatcher.register("service_type", ServiceTypeResourceProvider())
-dispatcher.register("task_template", TaskSchemaResourceProvider())
-dispatcher.register("public_api", PublicApiResourceProvider())
-urlpatterns = routers.urls + [
-    re_path(r"^resources/v1/$", dispatcher.as_view([login_exempt])),
-]
+if settings.STANDALONE_MODE:
+    urlpatterns = routers.urls
+else:
+    iam = IAM(
+        settings.APP_CODE,
+        settings.SECRET_KEY,
+        settings.BK_IAM_INNER_HOST,
+        settings.BK_PAAS_HOST,
+    )
+    dispatcher = DjangoBasicResourceApiDispatcher(iam, settings.BK_IAM_SYSTEM_ID)
+    dispatcher.register("project", ProjectResourceProvider())
+    dispatcher.register("workflow", WorkFlowResourceProvider())
+    dispatcher.register("service", ServiceResourceProvider())
+    dispatcher.register("flow_version", WorkflowVersionResourceProvider())
+    dispatcher.register("role", RoleResourceProvider())
+    dispatcher.register("field", FieldResourceProvider())
+    dispatcher.register("trigger", TriggerResourceProvider())
+    dispatcher.register("user_group", UserGroupResourceProvider())
+    dispatcher.register("sla_agreement", SlaAgreementResourceProvider())
+    dispatcher.register("sla_calendar", SlaCalenderResourceProvider())
+    dispatcher.register("public_field", PublicFieldResourceProvider())
+    dispatcher.register("service_type", ServiceTypeResourceProvider())
+    dispatcher.register("task_template", TaskSchemaResourceProvider())
+    dispatcher.register("public_api", PublicApiResourceProvider())
+    urlpatterns = routers.urls + [
+        re_path(r"^resources/v1/$", dispatcher.as_view([login_exempt])),
+    ]

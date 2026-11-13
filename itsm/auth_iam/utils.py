@@ -48,12 +48,15 @@ from itsm.workflow.models import TemplateField
 
 class IamRequest(object):
     def __init__(self, request=None, username=None):
-        # 直接使用API网关，Client内部会通过get_endpoint自动获取完整URL
-        self._iam = IAM(
-            settings.APP_CODE,
-            settings.SECRET_KEY,
-            settings.BK_IAM_INNER_HOST,
-            None,  # bk_paas_host参数已废弃，保留用于兼容
+        self._iam = (
+            None
+            if settings.STANDALONE_MODE
+            else IAM(
+                settings.APP_CODE,
+                settings.SECRET_KEY,
+                settings.BK_IAM_INNER_HOST,
+                None,
+            )
         )
         self.request = request
         self.username = username
@@ -106,6 +109,9 @@ class IamRequest(object):
         """
         处理无权限 - 跳转申请列表
         """
+        if settings.STANDALONE_MODE:
+            return ""
+
         bk_token = None
         if self.request:
             bk_token = self.request.COOKIES.get("bk_token", "")
@@ -126,6 +132,12 @@ class IamRequest(object):
         获取批量资源的权限
         :return:
         """
+        if settings.STANDALONE_MODE:
+            actions_result = {action: True for action in actions}
+            return {
+                str(resource["resource_id"]): actions_result for resource in resources
+            }
+
         if settings.ENVIRONMENT == "dev" and settings.IAM_SKIP_AUTH:
             # dev 环境不走权限中心
             actions_result = {action: True for action in actions}
@@ -181,6 +193,9 @@ class IamRequest(object):
         当个资源批量申请的权限
         """
 
+        if settings.STANDALONE_MODE:
+            return {action: True for action in actions}
+
         subject = Subject(
             "user", self.request.user.username if self.request else self.username
         )
@@ -215,6 +230,9 @@ class IamRequest(object):
         return auth_actions
 
     def query_by_action(self, action):
+        if settings.STANDALONE_MODE:
+            return {}
+
         subject = Subject(
             "user", self.request.user.username if self.request else self.username
         )
@@ -245,6 +263,9 @@ def grant_resource_creator_related_actions(
     :param bk_token: 用户登录态
     :return:
     """
+
+    if settings.STANDALONE_MODE:
+        return
 
     # 对于创建人是 admin 的资源，无需关联授权
     if creator == "admin":
@@ -291,7 +312,7 @@ def grant_instance_creator_related_actions(
     :return:
     """
 
-    if instance.creator == "admin":
+    if settings.STANDALONE_MODE or instance.creator == "admin":
         return
 
     resource_type = instance.auth_resource["resource_type"]

@@ -61,6 +61,8 @@ __all__ = [
 
 # app 基本信息
 
+STANDALONE_MODE = os.environ.get("STANDALONE_MODE", "true").lower() == "true"
+
 # SaaS运行版本，如非必要请勿修改
 RUN_VER = "open"
 # SaaS应用ID
@@ -79,6 +81,15 @@ SECRET_KEY = APP_TOKEN = os.environ.get("APP_TOKEN", APP_TOKEN)
 BK_APP_SECRET = SECRET_KEY
 BK_URL = BK_PAAS_HOST = os.environ.get("BK_PAAS_HOST", "")
 BK_PAAS_INNER_HOST = os.environ.get("BK_PAAS_INNER_HOST", BK_PAAS_HOST)
+
+if STANDALONE_MODE:
+    APP_ID = APP_CODE = BK_APP_CODE = APP_ID or "bk_itsm"
+    APP_TOKEN = SECRET_KEY = BK_APP_SECRET = APP_TOKEN or "standalone-local-secret"
+    os.environ.setdefault("APP_ID", APP_ID)
+    os.environ.setdefault("APP_TOKEN", APP_TOKEN)
+    os.environ.setdefault("BKPAAS_APP_ID", APP_ID)
+    os.environ.setdefault("BKPAAS_APP_SECRET", APP_TOKEN)
+    BK_LOGIN_URL = BK_LOGIN_URL or "/login/"
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 # BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(

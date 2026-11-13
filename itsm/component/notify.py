@@ -80,6 +80,9 @@ class BaseNotifier(object):
         """
         发送通知
         """
+        if settings.STANDALONE_MODE:
+            return
+
         # 1.获取消息通知类型
         try:
             cmsi_client = BkCmsiApi.get_client()
@@ -168,6 +171,9 @@ class WeixinNotifier(BaseNotifier):
         super(WeixinNotifier, self).__init__(title, receivers, message)
 
     def send(self, **kwargs):
+        if settings.STANDALONE_MODE:
+            return
+
         params = merge_dict_list(
             [self.params, kwargs, {"msg_type": settings.QY_WEIXIN}]
         )
@@ -202,6 +208,9 @@ class RtxNotifier(BaseNotifier):
         super(RtxNotifier, self).__init__(title, receivers, message)
 
     def send(self, **kwargs):
+        if settings.STANDALONE_MODE:
+            return
+
         params = merge_dict_list([self.params, kwargs])
         try:
             cmsi_client = BkCmsiApi.get_client()
@@ -237,6 +246,9 @@ class EmailNotifier(BaseNotifier):
         """
         发送通知
         """
+        if settings.STANDALONE_MODE:
+            return
+
         params = merge_dict_list([self.params, kwargs])
         try:
             cmsi_client = BkCmsiApi.get_client()
@@ -260,6 +272,9 @@ class SmsNotifier(BaseNotifier):
         super(SmsNotifier, self).__init__(title, receivers, message)
 
     def send(self, **kwargs):
+        if settings.STANDALONE_MODE:
+            return
+
         try:
             params = merge_dict_list([self.params, kwargs, kwargs, {"msg_type": "sms"}])
             cmsi_client = BkCmsiApi.get_client()

@@ -25,6 +25,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 from django.conf import settings
 from django.urls import include, re_path
+from django.contrib.auth.views import LoginView
 
 # Uncomment the next two lines to enable the admin:
 from django.contrib import admin
@@ -34,6 +35,11 @@ from django.views import static
 urlpatterns = [
     # Django后台数据库管理®
     re_path(r"^admin/", admin.site.urls),
+    re_path(
+        r"^login/$",
+        LoginView.as_view(template_name="standalone/login.html"),
+        name="standalone_login",
+    ),
     re_path(r"^notice/", include("bk_notice_sdk.urls")),
     # 用户登录鉴权
     # re_path(r'^account/', include('account.urls')),

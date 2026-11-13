@@ -27,6 +27,8 @@ import os
 from django.conf import settings
 from blueapps.utils import get_client_by_user
 
+from common.local_users import get_users as get_local_users
+
 
 def get_batch_users(users, properties='all', is_exact=True, page_params=None):
     """
@@ -35,6 +37,13 @@ def get_batch_users(users, properties='all', is_exact=True, page_params=None):
 
     if page_params is None:
         page_params = {}
+
+    if settings.STANDALONE_MODE:
+        result = get_local_users(users, fuzzy=not is_exact)
+        if properties and properties != "all":
+            fields = [field for field in properties.split(",") if field]
+            return [{field: item.get(field, "") for field in fields} for item in result]
+        return result
 
     from itsm.component.esb.esbclient import client_backend
     if not users:
@@ -64,6 +73,9 @@ def get_batch_users(users, properties='all', is_exact=True, page_params=None):
 
 def get_all_users(users=None):
     """获取所有用户列表"""
+    if settings.STANDALONE_MODE:
+        return get_local_users()
+
     from itsm.component.esb.esbclient import client_backend
 
     if users is None:
@@ -86,7 +98,10 @@ def get_all_users(users=None):
 
 
 # 企业/社区版启用用户管理
-if os.environ.get("BKAPP_ENABLE_USERMGR") != '0':
+if (
+    os.environ.get("STANDALONE_MODE", "true").lower() != "true"
+    and os.environ.get("BKAPP_ENABLE_USERMGR") != "0"
+):
     # 默认需要用用户管理
     from adapter.config.sites.ieod.api import get_batch_users  # noqa
     from adapter.config.sites.ieod.api import get_all_users  # noqa

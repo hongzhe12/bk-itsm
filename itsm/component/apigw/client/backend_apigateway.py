@@ -193,6 +193,14 @@ class BkApigwComponent(object):
         """
         发起 API 网关请求
         """
+        if settings.STANDALONE_MODE:
+            return {
+                "result": True,
+                "code": ResponseCodeStatus.OK,
+                "message": "success",
+                "data": [],
+            }
+
         path = config.get("path", "")
         method = (config.get("method") or "POST").upper()
         api_name = config.get("api_name", "")

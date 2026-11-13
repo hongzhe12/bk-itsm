@@ -26,6 +26,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 import logging
 import time
 
+from django.conf import settings
+
 from itsm.component.constants import SYSTEM_OPERATE, TRANSITION_OPERATE, NODE_FAILED
 from itsm.ticket.serializers import StatusSerializer
 from itsm.ticket.models import Ticket, TicketGlobalVariable
@@ -210,6 +212,9 @@ class BkOpsService(ItsmBaseService):
             )
 
     def execute(self, data, parent_data):
+        if settings.STANDALONE_MODE:
+            return False
+
         if super(BkOpsService, self).execute(data, parent_data):
             return True
 
@@ -410,6 +415,8 @@ class BkOpsService(ItsmBaseService):
         return True
 
     def schedule(self, data, parent_data, callback_data=None):
+        if settings.STANDALONE_MODE:
+            return False
 
         error_message_template = "标准运维任务【{name}】schedule 执行失败，失败信息 {detail_message}"
 

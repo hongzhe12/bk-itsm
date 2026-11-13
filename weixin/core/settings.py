@@ -31,7 +31,7 @@ import config.default as settings
 X_FORWARDED_WEIXIN_HOST = 'HTTP_X_FORWARDED_WEIXIN_HOST'
 
 # 是否开启使用
-USE_WEIXIN = os.environ.get("BKAPP_USE_WEIXIN", None) == '1'
+USE_WEIXIN = not settings.STANDALONE_MODE and os.environ.get("BKAPP_USE_WEIXIN", None) == '1'
 # 是否为企业微信
 IS_QY_WEIXIN = os.environ.get("BKAPP_IS_QY_WEIXIN", None) == '1'
 # django 配置, 可使用自定义HOST

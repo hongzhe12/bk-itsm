@@ -214,6 +214,12 @@ class BkComponent(object):
         self.client = self._conf["client"]()
 
     def http(self, config):
+        if settings.STANDALONE_MODE:
+            return {
+                "result": False,
+                "message": "BlueKing services are disabled in standalone mode",
+                "data": {},
+            }
 
         # post.body or get.query_params
         query_params = config.get("query_params")

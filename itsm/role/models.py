@@ -258,6 +258,9 @@ class UserRole(ObjectManagerMixin, Model):
             u'operator': {'bizs': [2], 'role_id': 11},
         }
         """
+        if settings.STANDALONE_MODE:
+            return {}
+
         cache_key = "{}cmdb_roles_{}".format(PREFIX_KEY, username)
         cmdb_roles = cache.get(cache_key)
         if cmdb_roles:
@@ -336,6 +339,9 @@ class UserRole(ObjectManagerMixin, Model):
     def update_cmdb_common_roles(cls):
         """创建或更新cmdb中业务模型下的通用角色"""
 
+        if settings.STANDALONE_MODE:
+            return True
+
         cache_key = "{}cmdb_roles".format(PREFIX_KEY)
         cmdb_roles = cache.get(cache_key)
         if cmdb_roles is not None:
@@ -373,6 +379,9 @@ class UserRole(ObjectManagerMixin, Model):
         """
         通过角色类型获取人名，返回人名列表
         """
+
+        if settings.STANDALONE_MODE and user_type in ["CMDB", "ORGANIZATION"]:
+            return []
 
         if user_type in ["GENERAL", "CMDB"]:
 
@@ -483,6 +492,12 @@ class BKUserRole(models.Model):
             "cmdb": {},
             "organization": [],
         }
+        if settings.STANDALONE_MODE:
+            BKUserRole.objects.update_or_create(
+                username=username, defaults={"roles": roles}
+            )
+            return roles
+
         # 更新cmdb角色
         cmdb_roles = UserRole.get_cmdb_role_by_user(username)
         roles.update(cmdb=cmdb_roles)

@@ -49,6 +49,9 @@ from config import (
     APP_TOKEN,
 )
 
+STANDALONE_MODE = os.getenv("STANDALONE_MODE", "true").lower() == "true"
+FRONTEND_DEV_URL = os.getenv("FRONTEND_DEV_URL", "http://127.0.0.1:8004/")
+
 # 标准运维页面服务地址
 SITE_URL_SOPS = "/o/bk_sops/"
 
@@ -139,16 +142,22 @@ if IS_OPEN_V3 and ENGINE_REGION == "default" and ENABLE_SYNC_API_GATEWAY:
     BK_APIGW_API_SERVER_SUB_PATH = api_host.path.lstrip("/")
 
 # IAM 开启开关
-USE_IAM = True if os.getenv("USE_IAM", "true").lower() == "true" else False
+USE_IAM = False if STANDALONE_MODE else os.getenv("USE_IAM", "true").lower() == "true"
 if USE_IAM:
     INSTALLED_APPS += (
         "iam",
         "iam.contrib.iam_migration",
         "itsm.auth_iam",
     )
-IAM_SKIP_AUTH = False
+IAM_SKIP_AUTH = STANDALONE_MODE
 
-INSTALLED_APPS  += ("bkoauth",)
+if not STANDALONE_MODE:
+    INSTALLED_APPS += ("bkoauth",)
+
+if STANDALONE_MODE:
+    INSTALLED_APPS = tuple(
+        app for app in INSTALLED_APPS if app != "blueapps.opentelemetry.instrument_app"
+    )
 
 # 这里是默认的中间件，大部分情况下，不需要改动
 # 如果你已经了解每个默认 MIDDLEWARE 的作用，确实需要去掉某些 MIDDLEWARE，或者改动先后顺序，请去掉下面的注释，然后修改
@@ -194,6 +203,28 @@ MIDDLEWARE = (
     "apigw_manager.apigw.authentication.ApiGatewayJWTUserMiddleware",  # JWT 透传的用户信息
 )
 
+if STANDALONE_MODE:
+    MIDDLEWARE = tuple(
+        middleware
+        for middleware in MIDDLEWARE
+        if middleware
+        not in {
+            "itsm.component.misc_middlewares.WikiIamAuthMiddleware",
+            "blueapps.account.middlewares.RioLoginRequiredMiddleware",
+            "weixin.core.middlewares.WeixinAuthenticationMiddleware",
+            "weixin.core.middlewares.WeixinLoginMiddleware",
+            "blueapps.account.middlewares.LoginRequiredMiddleware",
+            "iam.contrib.django.middlewares.AuthFailedExceptionMiddleware",
+            "apigw_manager.apigw.authentication.ApiGatewayJWTGenericMiddleware",
+            "apigw_manager.apigw.authentication.ApiGatewayJWTAppMiddleware",
+            "apigw_manager.apigw.authentication.ApiGatewayJWTUserMiddleware",
+        }
+    )
+    MIDDLEWARE += ("common.standalone.login_required",)
+    AUTHENTICATION_BACKENDS = (
+        "django.contrib.auth.backends.ModelBackend",
+    ) + tuple(AUTHENTICATION_BACKENDS)
+
 # 所有环境的日志级别可以在这里配置
 # LOG_LEVEL = 'DEBUG'
 
@@ -235,20 +266,48 @@ CELERY_IMPORTS = (
 # CELERYD_PREFETCH_MULTIPLIER = 1
 # CELERY_ACKS_LATE = True
 
-# load logging settings
-LOGGING = get_logging_config_dict(locals())
-
-# 需要添加的 trace 相关信息格式
-inject_formatters = ("verbose",)
-# 注入到日志配置，会直接在对应 formatter 格式之后添加 trace_format
-# 日志中添加trace_id
-ENABLE_OTEL_TRACE = True if os.getenv("BKAPP_ENABLE_OTEL_TRACE", "0") == "1" else False
+ENABLE_OTEL_TRACE = False if STANDALONE_MODE else os.getenv("BKAPP_ENABLE_OTEL_TRACE", "0") == "1"
 BK_APP_OTEL_INSTRUMENT_DB_API = (
-    True if os.getenv("BKAPP_OTEL_INSTRUMENT_DB_API", "0") == "1" else False
+    False
+    if STANDALONE_MODE
+    else os.getenv("BKAPP_OTEL_INSTRUMENT_DB_API", "0") == "1"
 )
-if ENABLE_OTEL_TRACE:
-    trace_format = "[trace_id]: %(otelTraceID)s [span_id]: %(otelSpanID)s [resource.service.name]: %(otelServiceName)s"
-    inject_logging_trace_info(LOGGING, inject_formatters, trace_format)
+
+if STANDALONE_MODE:
+    log_dir = os.path.join(BASE_DIR, "logs")
+    os.makedirs(log_dir, exist_ok=True)
+    LOGGING = {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "formatters": {
+            "verbose": {
+                "format": "%(levelname)s [%(asctime)s] %(pathname)s %(lineno)d %(funcName)s %(message)s",
+                "datefmt": "%Y-%m-%d %H:%M:%S",
+            },
+            "simple": {"format": "%(levelname)s %(message)s"},
+        },
+        "handlers": {
+            "console": {"class": "logging.StreamHandler", "formatter": "simple"},
+            "file": {
+                "class": "logging.handlers.RotatingFileHandler",
+                "formatter": "verbose",
+                "filename": os.path.join(log_dir, f"{APP_CODE}-django.log"),
+                "maxBytes": 100 * 1024 * 1024,
+                "backupCount": 5,
+            },
+        },
+        "loggers": {
+            "django.request": {"handlers": ["file"], "level": "ERROR", "propagate": True},
+            "django.server": {"handlers": ["console"], "level": "INFO", "propagate": False},
+            "root": {"handlers": ["console", "file"], "level": LOG_LEVEL if "LOG_LEVEL" in locals() else "INFO"},
+        },
+    }
+else:
+    LOGGING = get_logging_config_dict(locals())
+    inject_formatters = ("verbose",)
+    if ENABLE_OTEL_TRACE:
+        trace_format = "[trace_id]: %(otelTraceID)s [span_id]: %(otelSpanID)s [resource.service.name]: %(otelServiceName)s"
+        inject_logging_trace_info(LOGGING, inject_formatters, trace_format)
 
 # 初始化管理员列表，列表中的人员将拥有预发布环境和正式环境的管理员权限
 # 注意：请在首次提测和上线前修改，之后的修改将不会生效
@@ -696,7 +755,7 @@ CUSTOM_TITLE = os.environ.get("BKAPP_CUSTOM_TITLE", None)
 # 自定义log
 LOG_NAME = os.environ.get("BKAPP_LOG_NAME", None)
 # 关闭通知
-CLOSE_NOTIFY = os.environ.get("BKAPP_CLOSE_NOTIFY", None)
+CLOSE_NOTIFY = "close" if STANDALONE_MODE else os.environ.get("BKAPP_CLOSE_NOTIFY", None)
 
 # CC和JOB的访问地址
 BK_CC_HOST = os.environ.get("BK_CC_HOST", "#")
@@ -710,7 +769,7 @@ BK_USER_MANAGE_HOST = os.environ.get("BK_USER_MANAGE_HOST", USER_MANGE_HOST)
 
 BK_USER_MANAGE_WEIXIN_HOST = os.environ.get("BK_USER_MANAGE_WEIXIN_HOST", BK_PAAS_HOST)
 
-LOGIN_URL = BK_LOGIN_URL
+LOGIN_URL = BK_LOGIN_URL or ("/login/" if STANDALONE_MODE else "")
 
 # 用户管理字段白名单
 BK_USER_DEFAULT_FIELDS = "id,username,display_name,domain,logo,category_id,category_name"
@@ -913,7 +972,11 @@ ITSM_TAPD_APIGW = os.environ.get("ITSM_TAPD_APIGW", "")
 TAPD_OAUTH_URL = os.environ.get("TAPD_OAUTH_URL", "")
 
 # bkchat快速审批
-USE_BKCHAT = True if os.getenv("USE_BKCHAT", "true").lower() == "true" else False
+USE_BKCHAT = (
+    False
+    if STANDALONE_MODE
+    else os.getenv("USE_BKCHAT", "true").lower() == "true"
+)
 if USE_BKCHAT:
     BKCHAT_URL = os.environ.get("BKCHAT_URL", "")
     BKCHAT_CALLBACK_URL = os.environ.get("BKCHAT_CALLBACK_URL", "")
@@ -1057,10 +1120,12 @@ BKAUTH_BACKEND_TYPE = "bk_ticket" if RUN_VER == "ieod" else "bk_token"
 if BKAUTH_BACKEND_TYPE == 'bk_token':
     OAUTH_COOKIES_PARAMS = {"bk_token": "bk_token"}
 
-    os.environ['OAUTH_API_URL'] = (
+    oauth_api_url = (
         os.getenv('BKAPP_OAUTH_API_URL') or
         os.getenv('BKPAAS_SSM_API_URL')
     )
+    if oauth_api_url:
+        os.environ['OAUTH_API_URL'] = oauth_api_url
 
     # OAuth 临近过期时间：生效期在 1 小时内则自动刷新 token
     EXPIRES_SECONDS = 60 * 60

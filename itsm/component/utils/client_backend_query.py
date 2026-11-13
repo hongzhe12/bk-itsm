@@ -35,6 +35,7 @@ from django.utils.translation import gettext as _
 from blueking.apigw.bkapis.bk_cmdb import CMDBApi
 from blueking.apigw.bkapis.bk_sops import BkSopsApi
 from blueking.apigw.bkapis.bk_user import BkUserApi
+from common.local_users import get_users as get_local_users
 from common.log import logger
 from itsm.component.constants import CACHE_5MIN, CACHE_30MIN, PREFIX_KEY
 from itsm.component.apigw.client.backend_apigateway import get_apis, get_released_resources
@@ -48,6 +49,9 @@ adapter_api = settings.ADAPTER_API
 
 
 def get_biz_choices():
+    if settings.STANDALONE_MODE:
+        return []
+
     cache_key = "%sapp_list" % PREFIX_KEY
     app_list = cache.get(cache_key)
     if app_list is not None:
@@ -108,6 +112,14 @@ def get_group(biz_group_conf, group_enum):
     :return:
     """
 
+    if settings.STANDALONE_MODE:
+        return {}, {
+            "name": _("其他"),
+            "key": "other",
+            "items": [],
+            "desc": settings.BIZ_GROUP_DESC,
+        }
+
     # 再获取分组的模块信息
     params = {"bk_supplier_account": 0, "bk_obj_id": biz_group_conf["biz_obj_id"]}
     try:
@@ -161,6 +173,9 @@ def get_attr_enum(bk_obj_id, enum_bk_property_id):
     :param bk_obj_id: 模型id
     :param enum_bk_property_id: 枚举属性的bk_property_id
     """
+    if settings.STANDALONE_MODE:
+        return {}
+
     enum = {}
     client = CMDBApi.get_client()
     attrs = client.search_object_attribute(
@@ -194,6 +209,9 @@ def get_biz_names():
 def get_all_apps():
     """通过search_bussiness 获取APP列表"""
 
+    if settings.STANDALONE_MODE:
+        return []
+
     params = {"bk_supplier_id": 0, "fields": [], "condition": {}}
 
     try:
@@ -214,6 +232,11 @@ def get_bk_users(format="list", name_type="bk_username", users=None):
     """
     if not users:
         return [] if format == "list" else {}
+    if settings.STANDALONE_MODE:
+        local_users = get_local_users(users)
+        if format == "list":
+            return [user[name_type] for user in local_users]
+        return {user["bk_username"]: user[name_type] for user in local_users}
     user_md5 = hashlib.md5(json.dumps(users).encode()).hexdigest()
     cache_key = "{}bk_users_{}_{}_{}".format(PREFIX_KEY, format, name_type, user_md5)
     bk_users = cache.get(cache_key)
@@ -226,6 +249,9 @@ def get_bk_business(bk_biz_id, role_type):
     """
     抽离cc查询业务逻辑，并添加5分钟缓存
     """
+
+    if settings.STANDALONE_MODE:
+        return ""
 
     cache_key = "%sbk_business_%s_%s" % (PREFIX_KEY, bk_biz_id, "_".join(role_type))
     search_business_list = cache.get(cache_key)
@@ -260,6 +286,9 @@ def get_list_department_profiles(params, page_size=500):
     @params page_size: int 每页拉取的数量
     @return result list
     """
+
+    if settings.STANDALONE_MODE:
+        return []
 
     params["page_size"] = page_size
     department_id = params.pop("id")
@@ -296,6 +325,9 @@ def get_list_departments(params, page_size=500):
     @return result list
     """
 
+    if settings.STANDALONE_MODE:
+        return []
+
     params["page_size"] = page_size
     client = BkUserApi.get_client()
     res = client.list_departments(params=params)
@@ -317,6 +349,9 @@ def get_list_departments(params, page_size=500):
 
 def get_department_users(department_id, recursive=False, detail=False):
     """获取部门用户列表，支持递归查询"""
+    if settings.STANDALONE_MODE:
+        return []
+
     cache_key = "{}department|{}users|{}".format(PREFIX_KEY, department_id, recursive)
     users = cache.get(cache_key)
 
@@ -346,6 +381,8 @@ def get_user_department_ids(username):
     """
     获取用户的组织架构ID，用于提升用户的组织架构提单速度
     """
+    if settings.STANDALONE_MODE:
+        return set()
     try:
         client = BkUserApi.get_client()
         res = client.list_user_department(
@@ -368,6 +405,8 @@ def get_user_department_ids(username):
 
 
 def get_department_info(department_id):
+    if settings.STANDALONE_MODE:
+        return []
     try:
         client = BkUserApi.get_client()
         res = client.retrieve_department(
@@ -382,6 +421,8 @@ def get_department_info(department_id):
 
 
 def list_departments_info():
+    if settings.STANDALONE_MODE:
+        return []
     try:
         res = get_list_departments({"fields": "name,id"})
     except APIGatewayResponseError as e:
@@ -392,6 +433,9 @@ def list_departments_info():
 
 def get_user_departments(username, id_only):
     """获取用户所属部门信息"""
+    if settings.STANDALONE_MODE:
+        return []
+
     cache_key = "%suser_departments_%s_%s" % (PREFIX_KEY, username, id_only)
     departments = cache.get(cache_key)
 
@@ -405,6 +449,8 @@ def get_user_departments(username, id_only):
 
 def get_systems():
     """获取ESB中的组件系统列表"""
+    if settings.STANDALONE_MODE:
+        return []
     try:
         return get_apis({})
     except Exception as e:
@@ -414,6 +460,8 @@ def get_systems():
 
 def get_components(system_names):
     """获取指定系统的组件列表"""
+    if settings.STANDALONE_MODE:
+        return []
     try:
         return get_released_resources({"api_name": system_names})
     except Exception as e:
@@ -424,6 +472,9 @@ def get_components(system_names):
 
 
 def get_group_next_data(bk_obj_id, bk_inst_id):
+    if settings.STANDALONE_MODE:
+        return []
+
     params = {
         "bk_supplier_account": "0",
         "bk_obj_id": bk_obj_id,
@@ -444,6 +495,8 @@ def get_group_next_data(bk_obj_id, bk_inst_id):
 
 def get_template_list(bk_biz_id=2, username=None):
     """获取标准运维流程模板列表"""
+    if settings.STANDALONE_MODE:
+        return []
     try:
         if username:
             _client = BkSopsApi.get_client_by_username(username)
@@ -462,6 +515,10 @@ def get_template_list(bk_biz_id=2, username=None):
 
 
 def get_user_leader(username):
+    if settings.STANDALONE_MODE:
+        leaders = get_local_users(username.strip(",").split(","))
+        return [item["username"] for user in leaders for item in user["leader"]]
+
     name_list = username.strip(",").split(",")
     leaders_results = settings.ADAPTER_API.get_batch_users(
         name_list, properties="leader", is_exact=True

@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import datetime
+import os
 try:
     import bkoauth
 except ImportError:
@@ -7,8 +8,30 @@ except ImportError:
 from django.apps import AppConfig
 from django.conf import settings
 from django.db import connection
+from django.db.models.signals import post_migrate
 
 from common.log import logger
+
+
+def init_standalone_admin(sender, **kwargs):
+    if not settings.STANDALONE_MODE:
+        return
+
+    from blueapps.account.models import User, UserProperty
+
+    username = os.getenv("STANDALONE_ADMIN_USERNAME", "admin")
+    user, _ = User.objects.get_or_create(username=username)
+    user.nickname = os.getenv("STANDALONE_ADMIN_DISPLAY_NAME", username)
+    user.is_staff = True
+    user.is_active = True
+    user.is_superuser = True
+    user.set_password(os.getenv("STANDALONE_ADMIN_PASSWORD", "admin"))
+    user.save()
+    UserProperty.objects.update_or_create(
+        user=user,
+        key="chname",
+        defaults={"value": user.nickname},
+    )
 
 
 class HelperConfig(AppConfig):
@@ -34,7 +57,9 @@ class HelperConfig(AppConfig):
         """
         blueapps的数据升级
         """
-        if bkoauth:
+        post_migrate.connect(init_standalone_admin, sender=self)
+
+        if bkoauth and not settings.STANDALONE_MODE:
             bkoauth._init_function()
         if not self.is_before_2_6_0():
             print("发现非2.6.0 之前的升级版本，已跳过修复")

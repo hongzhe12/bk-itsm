@@ -29,6 +29,7 @@ from collections import defaultdict
 from operator import itemgetter
 from celery.schedules import crontab
 from blueapps.contrib.celery_tools.periodic import periodic_task
+from django.conf import settings
 
 from itsm.component.constants.task import (
     NEED_UPDATE_TASK_STATUS,
@@ -55,6 +56,8 @@ logger = logging.getLogger("celery")
 
 def get_tasks_status(bk_biz_id, sops_task_ids):
     """批量查询任务状态"""
+    if settings.STANDALONE_MODE:
+        return None
 
     try:
         _client = BkSopsApi.get_client()
@@ -70,6 +73,8 @@ def get_tasks_status(bk_biz_id, sops_task_ids):
 
 def get_task_detail(bk_biz_id, sops_task_id):
     """查询任务详情"""
+    if settings.STANDALONE_MODE:
+        return None
 
     try:
         _client = BkSopsApi.get_client()
@@ -88,6 +93,8 @@ def get_task_detail(bk_biz_id, sops_task_id):
 
 def get_task_status(bk_biz_id, sops_task_id):
     """查询各节点状态"""
+    if settings.STANDALONE_MODE:
+        return None
 
     try:
         _client = BkSopsApi.get_client()
@@ -117,6 +124,9 @@ def sops_task_poller(task_ids=None):
     """sops任务轮询
     同步任务状态，任务状态为FINISHED时，统计标签数据
     """
+    if settings.STANDALONE_MODE:
+        return
+
     # 支持查询指定task的状态
     if task_ids:
         sync_ids = Task.objects.filter(
@@ -370,6 +380,9 @@ def do_after_sops_task_finished(sops_task_id):
 @share_lock()
 def devops_task_poller(task_ids=None):
     """蓝盾任务轮询"""
+    if settings.STANDALONE_MODE:
+        return
+
     if task_ids:
         sync_ids = Task.objects.filter(
             id__in=task_ids, status__in=NEED_SYNC_STATUS
